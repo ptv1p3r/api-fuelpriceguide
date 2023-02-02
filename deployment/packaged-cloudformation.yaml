@@ -177,6 +177,11 @@ Resources:
             - cognito-identity:*
             - cognito-idp:*
             Resource: '*'
+          - Effect: Allow
+            Action:
+            - dynamodb:*
+            Resource:
+            - Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/*
   GetDistrictsLambda:
     Type: AWS::Serverless::Function
     Properties:
