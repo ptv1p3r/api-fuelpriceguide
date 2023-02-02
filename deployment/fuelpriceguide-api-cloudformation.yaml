@@ -43,6 +43,7 @@ Mappings:
       Arn: arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
     Name:
       getTest: "fuelpriceguideApi-getTest"
+      getDistricts: "fuelpriceguideApi-getDistricts"
   ApiGateway:
     Model:
       # Mapping Template that translates Lambda response to API response
@@ -183,6 +184,77 @@ Resources:
           Level: "global"
           Application: "fuelpriceguideapi"
           Stack: !Sub "${AWS::StackName}"
+
+  ################ Get District ###################
+  GetDistrictsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 30
+      LogGroupName: !Sub
+        - "/aws/lambda/${LogGroupName}"
+        - LogGroupName: !Ref GetDistrictsLambda
+
+  GetDistrictsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+      Policies:
+        - PolicyName: "ExecuteClientPolicy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "cognito-identity:*"
+                  - "cognito-idp:*"
+                Resource: "*"
+
+  GetDistrictsLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub
+        - "${ProjectName}-${Environment}-${LambdaName}"
+        - LambdaName: !FindInMap [ Lambda, Name, getDistricts ]
+      CodeUri: ../get-districts/
+      Handler: index.handler
+      Runtime: nodejs18.x
+      Description: !Sub "Executes a client of a specific application. Lambda created by stack: ${AWS::StackName}."
+      MemorySize: 128
+      Timeout: 9
+      Role: !GetAtt GetDistrictsRole.Arn
+      Events:
+        ExecuteClient:
+          Type: Api
+          Properties:
+            Path: /districts/
+            Method: GET
+            RestApiId:
+              Ref: fuelpriceguideAPI
+      Environment:
+      #          Variables:
+      #          Region: !Sub "${AWS::Region}"
+      #            lockClientLambdaName: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:edpredy-${Environment}-gdeaApi-lockClient"
+      #            unlockClientLambdaName: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:edpredy-${Environment}-gdeaApi-unlockClient"
+      #            deleteClientLambdaName: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:edpredy-${Environment}-gdeaApi-deleteClient"
+      #            callbackGdeaUrl: !Ref GdeaCallbackUrl
+      #            gdeaUsername: !Ref GdeaUsername
+      #            gdeaPassword: !Ref GdeaPassword
+      Tags:
+        Project: !Ref ProjectName
+        Environment: !Ref Environment
+        Level: "global"
+        Application: "fuelpriceguideapi"
+        Stack: !Sub "${AWS::StackName}"
 
   ################ GDeA API ######################
   fuelpriceguideAPI:

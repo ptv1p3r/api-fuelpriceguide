@@ -1,4 +1,7 @@
+const { DynamoDB } = require("@aws-sdk/client-dynamodb");
 const API = require('./helpers/api-helper')("GET");
+
+const client = new DynamoDB({ region: "eu-west-1" });
 
 let globalContext;
 
@@ -13,24 +16,26 @@ let globalContext;
  * @param callback
  *
  */
-exports.handler = (event, context, callback) => {
+exports.handler = async (event, context, callback) => {
     let apiResponse = null;
     let responseObject;
 
     globalContext = context;
 
     try {
+        const results = await client.listTables({});
+        console.log(results.TableNames.join("\n"));
 
         responseObject = {
-            Code : 200,
-            Message : "All good",
+            Code: 200,
+            Message: "All good",
         };
 
         apiResponse = API.buildResponse(API.RESPONSE.SUCCESS, context, responseObject);
 
         callback(null, apiResponse);
 
-    } catch ( err ) {
+    } catch (err) {
         apiResponse = API.buildResponse(API.RESPONSE.INTERNAL_SERVER_ERROR, context);
 
         console.error('Error: ' + err);

@@ -41,6 +41,7 @@ Mappings:
       Arn: arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
     Name:
       getTest: fuelpriceguideApi-getTest
+      getDistricts: fuelpriceguideApi-getDistricts
   ApiGateway:
     Model:
       NoContentResponse: ''
@@ -113,7 +114,7 @@ Resources:
             - Lambda
             - Name
             - getTest
-      CodeUri: s3://vipernet-proldan-deployments/34a7de09b46563c08338299e2de3382b
+      CodeUri: s3://vipernet-proldan-deployments/6508674559a3bcc003fdaa834dbb6639
       Handler: index.handler
       Runtime: nodejs18.x
       Description:
@@ -130,6 +131,80 @@ Resources:
           Type: Api
           Properties:
             Path: /test/
+            Method: GET
+            RestApiId:
+              Ref: fuelpriceguideAPI
+      Environment: null
+      Tags:
+        Project:
+          Ref: ProjectName
+        Environment:
+          Ref: Environment
+        Level: global
+        Application: fuelpriceguideapi
+        Stack:
+          Fn::Sub: ${AWS::StackName}
+  GetDistrictsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 30
+      LogGroupName:
+        Fn::Sub:
+        - /aws/lambda/${LogGroupName}
+        - LogGroupName:
+            Ref: GetDistrictsLambda
+  GetDistrictsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+      - PolicyName: ExecuteClientPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - cognito-identity:*
+            - cognito-idp:*
+            Resource: '*'
+  GetDistrictsLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName:
+        Fn::Sub:
+        - ${ProjectName}-${Environment}-${LambdaName}
+        - LambdaName:
+            Fn::FindInMap:
+            - Lambda
+            - Name
+            - getDistricts
+      CodeUri: s3://vipernet-proldan-deployments/232e9851d6d0264c73d56c843f7f9ae4
+      Handler: index.handler
+      Runtime: nodejs18.x
+      Description:
+        Fn::Sub: 'Executes a client of a specific application. Lambda created by stack:
+          ${AWS::StackName}.'
+      MemorySize: 128
+      Timeout: 9
+      Role:
+        Fn::GetAtt:
+        - GetDistrictsRole
+        - Arn
+      Events:
+        ExecuteClient:
+          Type: Api
+          Properties:
+            Path: /districts/
             Method: GET
             RestApiId:
               Ref: fuelpriceguideAPI

@@ -27,11 +27,11 @@ paths:
           required: true
           type: "string"
           description: "Specify API Key"
-        - in: "body"
-          name: "ExecuteClientInputModel"
-          required: true
-          schema:
-            $ref: "#/definitions/ExecuteClientInputModel"
+#        - in: "body"
+#          name: "ExecuteClientInputModel"
+#          required: true
+#          schema:
+#            $ref: "#/definitions/ExecuteClientInputModel"
       responses:
         "200":
           description: "Authentication succeeded. Session tokens are returned."
@@ -79,6 +79,133 @@ paths:
             responseTemplates:
               application/json:
 #                Fn::FindInMap: [ ApiGateway, Model, SuccessResponseWithBodyOnly ]
+                Fn::FindInMap: [ ApiGateway, Model, SuccessResponseWithSuccessBodyOnly ]
+          .*"statusCode":400.*:
+            statusCode: "400"
+            responseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Strict-Transport-Security: "'max-age:315360000'"
+            responseTemplates:
+              application/json: "#set($inputRoot = $input.path('$'))\n{\n  \"message\"\
+                               \ : \"ERROR: Bad Request - Incorrect Username or Password\"\n}"
+          (.*"statusCode":500.*|.*Task timed out after.*):
+            statusCode: "500"
+            responseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Strict-Transport-Security: "'max-age:315360000'"
+            responseTemplates:
+              application/json: "#set($inputRoot = $input.path('$'))\n{\n  \"message\"\
+                               \ : \"ERROR: Internal Error\"\n}"
+        passthroughBehavior: "when_no_templates"
+        httpMethod: "POST"
+        requestTemplates:
+          application/json: "{\n
+                     \"register\": $input.json('$.Register'),\n
+                     \"applicationId\": $input.json('$.Application'),\n
+                     \"operationTimestamp\": $input.json('$.OperationTimestamp'),\n
+                     \"operationType\": $input.json('$.OperationType')\n
+                     }"
+        contentHandling: "CONVERT_TO_TEXT"
+        type: "aws"
+      security:
+        - IamApiKey: []
+    options:
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      responses:
+        "200":
+          description: "200 response"
+          schema:
+            $ref: "#/definitions/Empty"
+          headers:
+            Strict-Transport-Security:
+              type: "string"
+            Access-Control-Allow-Origin:
+              type: "string"
+            Access-Control-Allow-Methods:
+              type: "string"
+            Access-Control-Allow-Headers:
+              type: "string"
+      x-amazon-apigateway-integration:
+        responses:
+          default:
+            statusCode: "200"
+            responseParameters:
+              method.response.header.Access-Control-Allow-Methods: "'OPTIONS,POST,GET,DELETE,PATCH'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Strict-Transport-Security: "'max-age:315360000'"
+        passthroughBehavior: "when_no_match"
+        requestTemplates:
+          application/json: "{\"statusCode\": 200}"
+        type: "mock"
+  /districts/:
+    get:
+      description: "This method retrieves FPG districts."
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+        - in: "header"
+          name: "X-Api-Key"
+          required: true
+          type: "string"
+          description: "Specify API Key"
+      #        - in: "body"
+      #          name: "ExecuteClientInputModel"
+      #          required: true
+      #          schema:
+      #            $ref: "#/definitions/ExecuteClientInputModel"
+      responses:
+        "200":
+          description: "Authentication succeeded. Session tokens are returned."
+          schema:
+            $ref: "#/definitions/PostUsersSuccessResponse"
+          headers:
+            Strict-Transport-Security:
+              type: "string"
+            Access-Control-Allow-Origin:
+              type: "string"
+        "400":
+          description: "Bad request, invalid Username or Password."
+          schema:
+            $ref: "#/definitions/Empty"
+          headers:
+            Strict-Transport-Security:
+              type: "string"
+            Access-Control-Allow-Origin:
+              type: "string"
+            X-Request-ID:
+              type: "string"
+              description: "Request identifier"
+        "500":
+          description: "Internal server error"
+          schema:
+            $ref: "#/definitions/Empty"
+          headers:
+            Strict-Transport-Security:
+              type: "string"
+            Access-Control-Allow-Origin:
+              type: "string"
+            X-Request-ID:
+              type: "string"
+              description: "Request identifier"
+      x-amazon-apigateway-request-validator: "validateBodyAndPath"
+      x-amazon-apigateway-integration:
+        uri:
+          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetDistrictsLambda.Arn}/invocations
+        responses:
+          default:
+            statusCode: "200"
+            responseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Strict-Transport-Security: "'max-age:315360000'"
+            responseTemplates:
+              application/json:
+                #                Fn::FindInMap: [ ApiGateway, Model, SuccessResponseWithBodyOnly ]
                 Fn::FindInMap: [ ApiGateway, Model, SuccessResponseWithSuccessBodyOnly ]
           .*"statusCode":400.*:
             statusCode: "400"
