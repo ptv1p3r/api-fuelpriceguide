@@ -1,0 +1,17 @@
+{
+  "name": "api_fuelpriceguide_get_test",
+  "version": "1.0.0",
+  "description": "FPG API get-test",
+  "main": "index.js",
+  "repository": "https://github.com/awslabs/aws-sam-cli/tree/develop/samcli/local/init/templates/cookiecutter-aws-sam-hello-nodejs",
+  "author": "Pedro Roldan",
+  "license": "MIT",
+  "scripts": {
+    "test": "mocha tests/unit/"
+  },
+  "devDependencies": {
+    "aws-sdk": "^2.1307.0",
+    "chai": "^4.2.0",
+    "mocha": "^10.2.0"
+  }
+}

@@ -1,0 +1,4 @@
+/deployment/parameters-dev.properties
+/deployment/parameters-prd.properties
+/deployment/parameters-qa.properties
+/deployment/.aws-sam/

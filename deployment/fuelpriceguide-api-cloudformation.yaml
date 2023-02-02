@@ -1,0 +1,205 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: FUEL PRICE GUIDE API
+
+Metadata:
+  'AWS::CloudFormation::Interface':
+    ParameterGroups:
+      - Label:
+          default: NetworkStack details
+        Parameters:
+          - NetworkStackName
+    ParameterLabels:
+      NetworkStackName:
+        default: Network Stack Name
+
+Parameters:
+  Environment:
+    Description: The environment type
+    Type: String
+    AllowedValues:
+      - dev
+      - qa
+      - prd
+    ConstraintDescription: must be dev, prd or qa
+  ProjectName:
+    Description: Fuel Price Guide API
+    Type: String
+    AllowedValues: # add more in the future, as needed
+      - vipernet
+      - fuelpriceguide
+  NetworkStackName:
+    Description: The name of the network stack that exports values that this template imports.
+    Type: String
+  BucketBackOfficeLogsName:
+    Description: S3 Bucket where back office logs will be stored
+    Type: String
+
+Mappings:
+  Lambda:
+    GenericPolicy:
+      Arn: arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    VPCAccessRole:
+      Arn: arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+    Name:
+      getTest: "fuelpriceguideApi-getTest"
+  ApiGateway:
+    Model:
+      # Mapping Template that translates Lambda response to API response
+      NoContentResponse: ""
+      GenericResponse:
+        "
+        #set($allParams = $input.params())\n\
+              {\n$input.json('$').body\n}\n
+        "
+      GenericResponseWithBody:
+        "
+        #set ($errorMessageObj = $util.parseJson($input.path('$.errorMessage')))\n\
+        #set($body = $errorMessageObj.get('body'))\n{\n    #foreach($paramName\
+              \ in $body.keySet())\n    \"$paramName\" : \"$util.escapeJavaScript($body.get($paramName))\"\
+              \n        #if($foreach.hasNext),#end\n    #end\n}"
+      SuccessResponseWithOptionalFunctionalError:
+        "
+        #set($allParams = $input.params())\n
+        #set($responseResult = $input.json('$.success'))\n
+        #if($responseResult != '')\n
+          $input.json('$.success.body')\n
+        #else\n
+          $util.parseJson($input.json('$.error.body'))\n
+        #end
+        "
+      SuccessResponseCompleteWithOptionalFunctionalError:
+        "#set($errorMessageObject = $util.parseJson($input.path('$.errorMessage')))\n
+              #if (  \"$!errorMessageObject\" == \"\" )\n
+                  #set($allParams = $input.params())\n
+                  $input.json('$.body')\n
+              #else\n
+                  {\n
+                      \"error\": {\n
+                          \"type\": \"$errorMessageObject.body.error.type\",\n
+                          \"code\": $errorMessageObject.body.error.code,\n
+                          \"message\": \"$errorMessageObject.body.error.message\",\n
+                          \"emcpRequestId\": \"$errorMessageObject.body.error.emcpRequestId\"\n
+                      }\n
+                  }\n
+              #end"
+      SuccessResponseWithBodyOnly:
+        "
+        #set($allParams = $input.params())\n
+          $input.json('$.body')
+        "
+      SuccessResponseWithSuccessBodyOnly:
+        "
+        #set($allParams = $input.params())\n
+          $input.json('$.success.body')
+        "
+
+Conditions:
+  IsDev: !Equals [!Ref Environment, dev]
+
+Resources:
+  ################ Shared resources #############
+#  AccessDBCredentialsCustomPolicy:
+#    Type: "AWS::IAM::ManagedPolicy"
+#    Properties:
+#      Description: !Sub "Allows access to specific credentials in the Parameter Store. Policy created by stack: ${AWS::StackName}."
+#      PolicyDocument:
+#        Version: 2012-10-17
+#        Statement:
+#          - Effect: Allow
+#            Action:
+#              - "ssm:GetParameter*"
+#            Resource: !Sub
+#            - "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${Environment}/${DBCredentials}"
+#            - DBCredentials: !FindInMap [ Credentials, Database, Name ]
+
+  ################ Get Test ###################
+  GetTestLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 30
+      LogGroupName: !Sub
+        - "/aws/lambda/${LogGroupName}"
+        - LogGroupName: !Ref GetTestLambda
+
+  GetTestRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - "lambda.amazonaws.com"
+              Action:
+                - "sts:AssumeRole"
+        ManagedPolicyArns:
+          - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        Policies:
+          - PolicyName: "ExecuteClientPolicy"
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - "cognito-identity:*"
+                    - "cognito-idp:*"
+                  Resource: "*"
+
+  GetTestLambda:
+      Type: AWS::Serverless::Function
+      Properties:
+        FunctionName: !Sub
+          - "${ProjectName}-${Environment}-${LambdaName}"
+          - LambdaName: !FindInMap [ Lambda, Name, getTest ]
+        CodeUri: ../get-test/
+        Handler: index.handler
+        Runtime: nodejs18.x
+        Description: !Sub "Executes a client of a specific application. Lambda created by stack: ${AWS::StackName}."
+        MemorySize: 128
+        Timeout: 9
+        Role: !GetAtt GetTestRole.Arn
+        Events:
+          ExecuteClient:
+            Type: Api
+            Properties:
+              Path: /test/
+              Method: GET
+              RestApiId:
+                Ref: fuelpriceguideAPI
+        Environment:
+#          Variables:
+            #          Region: !Sub "${AWS::Region}"
+#            lockClientLambdaName: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:edpredy-${Environment}-gdeaApi-lockClient"
+#            unlockClientLambdaName: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:edpredy-${Environment}-gdeaApi-unlockClient"
+#            deleteClientLambdaName: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:edpredy-${Environment}-gdeaApi-deleteClient"
+#            callbackGdeaUrl: !Ref GdeaCallbackUrl
+#            gdeaUsername: !Ref GdeaUsername
+#            gdeaPassword: !Ref GdeaPassword
+        Tags:
+          Project: !Ref ProjectName
+          Environment: !Ref Environment
+          Level: "global"
+          Application: "fuelpriceguideapi"
+          Stack: !Sub "${AWS::StackName}"
+
+  ################ GDeA API ######################
+  fuelpriceguideAPI:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Sub "${Environment}"
+      DefinitionBody:
+        Fn::Transform:
+          Name: AWS::Include
+          Parameters:
+            Location: !Sub
+              #- "s3://${ProjectName}-${Environment}-deployments/artifacts/api/fuelpriceguide-api/fuelpriceguideApi-swagger.yaml"
+              - "s3://vipernet-proldan-deployments/artifacts/api/fuelpriceguide-api/fuelpriceguideApi-swagger.yaml"
+              - Environment: !Ref Environment
+      Auth:
+        ApiKeyRequired: true
+        UsagePlan:
+          CreateUsagePlan: PER_API
+          Description: Usage Plan for Fuel Price Guide clients
+          UsagePlanName: fuelpriceguide-usageplan

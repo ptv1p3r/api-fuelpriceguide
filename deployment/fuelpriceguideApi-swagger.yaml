@@ -1,0 +1,210 @@
+swagger: "2.0"
+info:
+  version: "2021-05-18T10:41:18Z"
+  title: "Fuel Price Guide API"
+  description: Manages Fuel Price Guide Clients.
+basePath: "https://api.fuelpriceguide.pt/api"
+schemes:
+- "https"
+x-amazon-apigateway-request-validators:
+  validatePathParams:
+    validateRequestParameters: true
+    validateRequestBody: false
+  validateBodyAndPath:
+    validateRequestParameters: true
+    validateRequestBody: true
+paths:
+  /test/:
+    get:
+      description: "This method executes FPG test."
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+        - in: "header"
+          name: "X-Api-Key"
+          required: true
+          type: "string"
+          description: "Specify API Key"
+        - in: "body"
+          name: "ExecuteClientInputModel"
+          required: true
+          schema:
+            $ref: "#/definitions/ExecuteClientInputModel"
+      responses:
+        "200":
+          description: "Authentication succeeded. Session tokens are returned."
+          schema:
+            $ref: "#/definitions/PostUsersSuccessResponse"
+          headers:
+            Strict-Transport-Security:
+              type: "string"
+            Access-Control-Allow-Origin:
+              type: "string"
+        "400":
+          description: "Bad request, invalid Username or Password."
+          schema:
+            $ref: "#/definitions/Empty"
+          headers:
+            Strict-Transport-Security:
+              type: "string"
+            Access-Control-Allow-Origin:
+              type: "string"
+            X-Request-ID:
+              type: "string"
+              description: "Request identifier"
+        "500":
+          description: "Internal server error"
+          schema:
+            $ref: "#/definitions/Empty"
+          headers:
+            Strict-Transport-Security:
+              type: "string"
+            Access-Control-Allow-Origin:
+              type: "string"
+            X-Request-ID:
+              type: "string"
+              description: "Request identifier"
+      x-amazon-apigateway-request-validator: "validateBodyAndPath"
+      x-amazon-apigateway-integration:
+        uri:
+          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetTestLambda.Arn}/invocations
+        responses:
+          default:
+            statusCode: "200"
+            responseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Strict-Transport-Security: "'max-age:315360000'"
+            responseTemplates:
+              application/json:
+#                Fn::FindInMap: [ ApiGateway, Model, SuccessResponseWithBodyOnly ]
+                Fn::FindInMap: [ ApiGateway, Model, SuccessResponseWithSuccessBodyOnly ]
+          .*"statusCode":400.*:
+            statusCode: "400"
+            responseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Strict-Transport-Security: "'max-age:315360000'"
+            responseTemplates:
+              application/json: "#set($inputRoot = $input.path('$'))\n{\n  \"message\"\
+                               \ : \"ERROR: Bad Request - Incorrect Username or Password\"\n}"
+          (.*"statusCode":500.*|.*Task timed out after.*):
+            statusCode: "500"
+            responseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Strict-Transport-Security: "'max-age:315360000'"
+            responseTemplates:
+              application/json: "#set($inputRoot = $input.path('$'))\n{\n  \"message\"\
+                               \ : \"ERROR: Internal Error\"\n}"
+        passthroughBehavior: "when_no_templates"
+        httpMethod: "POST"
+        requestTemplates:
+          application/json: "{\n
+                     \"register\": $input.json('$.Register'),\n
+                     \"applicationId\": $input.json('$.Application'),\n
+                     \"operationTimestamp\": $input.json('$.OperationTimestamp'),\n
+                     \"operationType\": $input.json('$.OperationType')\n
+                     }"
+        contentHandling: "CONVERT_TO_TEXT"
+        type: "aws"
+      security:
+        - IamApiKey: []
+    options:
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      responses:
+        "200":
+          description: "200 response"
+          schema:
+            $ref: "#/definitions/Empty"
+          headers:
+            Strict-Transport-Security:
+              type: "string"
+            Access-Control-Allow-Origin:
+              type: "string"
+            Access-Control-Allow-Methods:
+              type: "string"
+            Access-Control-Allow-Headers:
+              type: "string"
+      x-amazon-apigateway-integration:
+        responses:
+          default:
+            statusCode: "200"
+            responseParameters:
+              method.response.header.Access-Control-Allow-Methods: "'OPTIONS,POST,GET,DELETE,PATCH'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Strict-Transport-Security: "'max-age:315360000'"
+        passthroughBehavior: "when_no_match"
+        requestTemplates:
+          application/json: "{\"statusCode\": 200}"
+        type: "mock"
+securityDefinitions:
+  IamApiKey:
+    type: "apiKey"
+    name: "X-Api-Key"
+    in: "header"
+x-amazon-apigateway-gateway-responses:
+  DEFAULT_4XX:
+    responseParameters:
+      gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+    responseTemplates:
+      application/json: "{\"message\":$context.error.messageString}"
+  DEFAULT_5XX:
+    responseParameters:
+      gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+    responseTemplates:
+      application/json: "{\"message\":$context.error.messageString}"
+definitions:
+  Empty:
+    title: "Empty Schema"
+    type: "object"
+  Error:
+    title: "Error Schema"
+    type: "object"
+    properties:
+      message:
+        type: "string"
+  GetUserSuccessResponse:
+    title: "GetUserSuccessResponse"
+    type: "object"
+    properties:
+      found:
+        type: "boolean"
+      username:
+        type: "string"
+  PostUsersSuccessResponse:
+    title: "PostUsersSuccessResponse"
+    type: "object"
+    properties:
+      Code:
+        type: "string"
+      Message:
+        type: "string"
+  ExecuteClientInputModel:
+    title: "ExecuteClientInputModel"
+    type: "object"
+    properties:
+      Register:
+        type: "array"
+        items:
+          type: "object"
+          properties:
+            RequestId:
+              type: "string"
+            PartnerNumber:
+              type: "string"
+        minItems: 1
+      Application:
+        type: "string"
+      OperationType:
+        type: "string"
+      OperationTimestamp:
+        type: "string"
+    required:
+      - Register
+      - Application
+      - OperationType
+      - OperationTimestamp
